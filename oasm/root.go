@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+// Health checks the health status of the API by sending a GET request
+// to the "/api/health" endpoint.
+//
+// It returns true if the response body equals "OK" and the status code is 200 (OK).
+// Otherwise, it returns false along with an error if something goes wrong
+// (e.g., network error, unexpected status code, or invalid response body).
 func (c *Client) Health() (bool, error) {
 	resp, err := c.req.Get(c.apiURL + "/api/health")
 	if err != nil {
