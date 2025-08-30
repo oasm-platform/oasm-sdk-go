@@ -8,16 +8,26 @@ import (
 	"github.com/bytedance/sonic"
 )
 
+// WorkerAliveRequest represents the request payload for a worker keep-alive signal.
 type WorkerAliveRequest struct {
 	Token string `json:"token"`
 }
 
+// WorkerAliveResponse represents the response returned by the API
+// after receiving a keep-alive signal from a worker.
 type WorkerAliveResponse struct {
-	Message string `json:"message"`
+	Alive string `json:"alive"`
 }
 
+// WorkerAlive sends a keep-alive request to the API to indicate that the worker is still active.
+// It returns a WorkerAliveResponse on success, or an error if the request fails.
 func (c *Client) WorkerAlive(req *WorkerAliveRequest) (*WorkerAliveResponse, error) {
-	resp, err := c.req.Post(c.apiURL+"/api/workers/alive", "application/json", req)
+	reqBody, err := sonic.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.req.Post(c.apiURL+"/api/workers/alive", "application/json", reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +38,7 @@ func (c *Client) WorkerAlive(req *WorkerAliveRequest) (*WorkerAliveResponse, err
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, ErrorResponse(body)
 	}
 
@@ -77,7 +87,7 @@ func (c *Client) WorkerJoin() (*WorkerJoinResponse, error) {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK || resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, ErrorResponse(body)
 	}
 
