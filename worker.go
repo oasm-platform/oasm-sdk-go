@@ -1,7 +1,6 @@
 package oasm
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -24,27 +23,28 @@ func (c *Client) WorkerAlive(req *WorkerAliveRequest) (*WorkerAliveResponse, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	var data *WorkerAliveResponse
-	if err = sonic.Unmarshal(body, data); err != nil {
-		return nil, err
+	if resp.StatusCode != http.StatusOK {
+		return nil, ErrorResponse(body)
 	}
 
-	return data, nil
+	var data WorkerAliveResponse
+	if err = sonic.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+	return &data, nil
 }
 
+// WorkerJoinRequest represents the request payload for joining a worker.
 type WorkerJoinRequest struct {
-	Token string `json:"token"`
+	ApiKey string `json:"apiKey"`
 }
 
+// WorkerJoinResponse represents the response returned after a worker successfully joins.
 type WorkerJoinResponse struct {
 	Id               string    `json:"id"`
 	CreatedAt        time.Time `json:"createdAt"`
@@ -56,26 +56,34 @@ type WorkerJoinResponse struct {
 	Scope            string    `json:"scope"`
 }
 
-func (c *Client) WorkerJoin(req *WorkerJoinRequest) (*WorkerJoinResponse, error) {
-	resp, err := c.req.Post(c.apiURL+"/api/workers/join", "application/json", req)
+// WorkerJoin sends a join request to the API using the client's ApiKey.
+// It returns a WorkerJoinResponse on success, or an error if the request fails.
+func (c *Client) WorkerJoin() (*WorkerJoinResponse, error) {
+	reqBody, err := sonic.Marshal(&WorkerJoinRequest{
+		ApiKey: c.apiKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.req.Post(c.apiURL+"/api/workers/join", "application/json", reqBody)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	var data *WorkerJoinResponse
-	if err = sonic.Unmarshal(body, data); err != nil {
-		return nil, err
+	if resp.StatusCode != http.StatusOK || resp.StatusCode != http.StatusCreated {
+		return nil, ErrorResponse(body)
 	}
 
-	return data, nil
+	var data WorkerJoinResponse
+	if err = sonic.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+	return &data, nil
 }
