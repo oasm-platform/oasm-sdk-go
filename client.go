@@ -30,7 +30,8 @@ type Client struct {
 // changing the constructor signature.
 func NewClient(opts ...Option) *Client {
 	c := &Client{
-		req: retryablehttp.NewClient(),
+		req:    retryablehttp.NewClient(),
+		apiURL: "http://localhost:6277",
 	}
 	for _, o := range opts {
 		o(c)
