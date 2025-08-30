@@ -1,6 +1,7 @@
 package oasm
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -25,6 +26,10 @@ func WithApiURL(apiUrl string) Option {
 // WithApiKey sets the API key for the Client.
 func WithApiKey(apiKey string) Option {
 	return func(c *Client) error {
+		if apiKey == "" {
+			return fmt.Errorf("invalid api key")
+		}
+
 		c.apiKey = apiKey
 		return nil
 	}
