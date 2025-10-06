@@ -27,7 +27,7 @@ func (c *Client) WorkerAlive(req *WorkerAliveRequest) (*WorkerAliveResponse, err
 		return nil, err
 	}
 
-	resp, err := c.req.Post(c.apiURL+"/api/workers/alive", "application/json", reqBody)
+	resp, err := c.Post(c.getAPIURL("/api/workers/alive"), "application/json", reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (c *Client) WorkerJoin() (*WorkerJoinResponse, error) {
 		return nil, err
 	}
 
-	resp, err := c.req.Post(c.apiURL+"/api/workers/join", "application/json", reqBody)
+	resp, err := c.Post(c.getAPIURL("/api/workers/join"), "application/json", reqBody)
 	if err != nil {
 		return nil, err
 	}

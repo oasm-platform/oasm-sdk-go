@@ -1,6 +1,9 @@
 package oasm
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/hashicorp/go-retryablehttp"
 )
 
@@ -37,4 +40,17 @@ func NewClient(opts ...Option) *Client {
 		o(c)
 	}
 	return c
+}
+
+func (c *Client) getAPIURL(path string, a ...any) string {
+	base := strings.TrimRight(c.apiURL, "/")
+	if len(a) > 0 {
+		path = fmt.Sprintf(path, a...)
+	}
+
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	return base + path
 }

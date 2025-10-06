@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/bytedance/sonic"
-	"github.com/hashicorp/go-retryablehttp"
 )
 
 type JobsNextParam struct {
@@ -24,13 +23,7 @@ type JobsNextResponse struct {
 }
 
 func (c *Client) JobsNext(param *JobsNextParam, header *JobsNextHeader) (*JobsNextResponse, error) {
-	req, err := retryablehttp.NewRequest("GET", c.apiURL+"/api/jobs-registry/"+param.WorkerID+"/next", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("worker-token", header.WorkerToken)
-
-	resp, err := c.req.Do(req)
+	resp, err := c.GetWithToken(c.getAPIURL("/api/jobs-registry/%s/next", param.WorkerID), header.WorkerToken)
 	if err != nil {
 		return nil, err
 	}
