@@ -31,7 +31,7 @@ func TestClient_Health(t *testing.T) {
 			name: "TestSuccess",
 			fields: fields{
 				req:    retryablehttp.NewClient(),
-				apiURL: "http://localhost:6276",
+				apiURL: "https://3pnb3328-5173.asse.devtunnels.ms",
 			},
 			want: true,
 		},
