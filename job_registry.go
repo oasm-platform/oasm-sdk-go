@@ -46,8 +46,10 @@ func (c *Client) JobsNext(param *JobsNextParam, header *JobsNextHeader) (*JobsNe
 	}
 
 	var data JobsNextResponse
-	if err = sonic.Unmarshal(body, &data); err != nil {
-		return nil, err
+	if len(body) > 0 {
+		if err = sonic.Unmarshal(body, &data); err != nil {
+			return nil, err
+		}
 	}
 
 	return &data, nil
