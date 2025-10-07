@@ -16,7 +16,7 @@ go get -u github.com/oasm-platform/oasm-sdk-go
 Then import it in your project:
 
 ```go
-import oasm "github.com/oasm-platform/oasm-sdk-go"
+import "github.com/oasm-platform/oasm-sdk-go/oasm"
 ```
 
 ---
@@ -32,7 +32,7 @@ import (
 	"fmt"
 	"log"
 
-	oasm "github.com/oasm-platform/oasm-sdk-go"
+	"github.com/oasm-platform/oasm-sdk-go/oasm"
 )
 
 func main() {
