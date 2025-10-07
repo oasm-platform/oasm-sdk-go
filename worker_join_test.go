@@ -1,7 +1,6 @@
 package oasm
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -50,9 +49,7 @@ func TestClient_WorkerJoin(t *testing.T) {
 				t.Errorf("WorkerJoin() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-
-			fmt.Println(got)
-
+			t.Log(got)
 			//if tt.want.Scope != got.Scope || tt.want.Type != got.Type {
 			//	t.Errorf("WorkerJoin() got = %v, want %v", got, tt.want)
 			//}
