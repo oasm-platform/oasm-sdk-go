@@ -40,14 +40,14 @@ func TestClient_JobsNext(t *testing.T) {
 			param:  &JobsNextParam{WorkerID: ""},
 			header: &JobsNextHeader{WorkerToken: "token1"},
 			// want:    &JobsNextResponse{},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name:   "EmptyWorkerToken",
 			param:  &JobsNextParam{WorkerID: "worker1"},
 			header: &JobsNextHeader{WorkerToken: ""},
 			// want:    &JobsNextResponse{},
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -57,8 +57,7 @@ func TestClient_JobsNext(t *testing.T) {
 				apiURL: "https://3pnb3328-5173.asse.devtunnels.ms",
 				apiKey: "LRvageiyjX8boc6OyApx4nigiJSAexXxfzpo",
 			}
-			worker, err := c.WorkerJoin()
-			got, err := c.JobsNext(&JobsNextParam{WorkerID: worker.Id}, &JobsNextHeader{WorkerToken: worker.Token})
+			got, err := c.JobsNext(tt.param, tt.header)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("JobsNext() error = %v, wantErr %v", err, tt.wantErr)
 				return
