@@ -14,7 +14,7 @@ import (
 // Otherwise, it returns false along with an error if something goes wrong
 // (e.g., network error, unexpected status code, or invalid response body).
 func (c *Client) Health() (bool, error) {
-	resp, err := c.Get(c.apiURL + "/api/health")
+	resp, err := c.Get(c.getAPIURL("/api/health"))
 	if err != nil {
 		return false, err
 	}
