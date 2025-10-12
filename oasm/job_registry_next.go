@@ -3,6 +3,7 @@ package oasm
 import (
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/bytedance/sonic"
 )
@@ -16,11 +17,13 @@ type JobsNextHeader struct {
 }
 
 type JobsNextResponse struct {
-	ID       string `json:"id,omitempty"`
-	Value    string `json:"value,omitempty"`
-	Category string `json:"category,omitempty"`
-	Priority int    `json:"priority,omitempty"`
-	Command  string `json:"command,omitempty"`
+	ID        string    `json:"id,omitempty"`
+	Asset     string    `json:"asset,omitempty"`
+	Category  string    `json:"category,omitempty"`
+	Priority  int       `json:"priority,omitempty"`
+	Command   string    `json:"command,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 func (c *Client) JobsNext(param *JobsNextParam, header *JobsNextHeader) (*JobsNextResponse, error) {
