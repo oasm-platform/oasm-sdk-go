@@ -16,9 +16,10 @@ type JobsNextHeader struct {
 }
 
 type JobsNextResponse struct {
-	JobID    string `json:"jobId,omitempty"`
+	ID       string `json:"id,omitempty"`
 	Value    string `json:"value,omitempty"`
 	Category string `json:"category,omitempty"`
+	Priority int    `json:"priority,omitempty"`
 	Command  string `json:"command,omitempty"`
 }
 
