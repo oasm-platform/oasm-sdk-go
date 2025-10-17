@@ -37,7 +37,7 @@ func (c *Client) JobsResult(param *JobsResultParam, req *JobsResultRequest) erro
 		return err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return ErrorResponse(body)
 	}
 
