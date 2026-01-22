@@ -3,6 +3,7 @@ package oasm
 import (
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -10,7 +11,8 @@ import (
 
 // WorkerJoinRequest represents the request payload for joining a worker.
 type WorkerJoinRequest struct {
-	ApiKey string `json:"apiKey"`
+	ApiKey    string `json:"apiKey"`
+	Signature string `json:"signature"`
 }
 
 // WorkerJoinResponse represents the response returned after a worker successfully joins.
@@ -29,7 +31,8 @@ type WorkerJoinResponse struct {
 // It returns a WorkerJoinResponse on success, or an error if the request fails.
 func (c *Client) WorkerJoin() (*WorkerJoinResponse, error) {
 	reqBody, err := sonic.Marshal(&WorkerJoinRequest{
-		ApiKey: c.apiKey,
+		ApiKey:    c.apiKey,
+		Signature: os.Getenv("WORKER_SIGNATURE"),
 	})
 	if err != nil {
 		return nil, err
