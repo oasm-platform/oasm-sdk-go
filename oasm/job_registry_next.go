@@ -16,9 +16,17 @@ type JobsNextHeader struct {
 	WorkerToken string
 }
 
+type Asset struct {
+	Value     string `json:"value,omitempty"`
+	TargetID  string `json:"targetId,omitempty"`
+	IsPrimary bool   `json:"isPrimary,omitempty"`
+	DNSRecord any    `json:"dnsRecord,omitempty"`
+	IsEnabled bool   `json:"isEnabled,omitempty"`
+}
+
 type JobsNextResponse struct {
-	ID        string    `json:"id,omitempty"`
-	Asset     string    `json:"asset,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Asset     Asset
 	Category  string    `json:"category,omitempty"`
 	Priority  int       `json:"priority,omitempty"`
 	Command   string    `json:"command,omitempty"`
