@@ -18,6 +18,7 @@ type Client struct {
 	apiKey     string
 	configPath string
 	token      string
+	toolPath   string
 
 	workerOnce sync.Once
 	worker     workerPb.WorkersServiceClient
