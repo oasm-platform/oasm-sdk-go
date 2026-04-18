@@ -8,7 +8,7 @@ import (
 
 // WorkerConnect manages the full lifecycle of the worker's connection.
 // It handles initial Join, maintains the Alive stream, and automatically reconnects on failure.
-func (c *Client) WorkerConnect(ctx context.Context) {
+func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 	const (
 		baseDelay = 2 * time.Second
 		maxDelay  = 30 * time.Second
@@ -20,6 +20,11 @@ func (c *Client) WorkerConnect(ctx context.Context) {
 
 		_, err := c.WorkerJoin(ctx)
 		if err != nil {
+			select {
+			case ready <- false:
+			default:
+			}
+
 			log.Printf("Join failed: %v. Retrying in %v...", err, currentDelay)
 
 			if !c.waitWithContext(ctx, currentDelay) {
@@ -36,7 +41,18 @@ func (c *Client) WorkerConnect(ctx context.Context) {
 		currentDelay = baseDelay
 		log.Printf("Join successful. Worker ID: %s", c.workerID)
 
+		select {
+		case ready <- true:
+		default:
+		}
+
 		err = c.WorkerAlive(ctx)
+
+		select {
+		case ready <- false:
+		default:
+		}
+
 		if err != nil {
 			log.Printf("Alive stream interrupted: %v. Reconnecting...", err)
 		} else {
