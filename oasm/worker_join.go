@@ -41,10 +41,9 @@ func (c *Client) WorkerJoin(ctx context.Context) (*pb.JoinResponse, error) {
 	}
 
 	c.workerID = resp.WorkerId
+	c.token = resp.WorkerToken
 
 	if oldState == nil || resp.WorkerToken != oldState.WorkerToken {
-		c.token = resp.WorkerToken
-
 		if err := c.saveWorkerState(resp); err != nil {
 			log.Printf("Warning: failed to save worker state: %v", err)
 		}
