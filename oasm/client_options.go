@@ -1,9 +1,11 @@
 package oasm
 
 import (
+	"context"
 	"fmt"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // Option represents a functional option for configuring the Client.
@@ -65,4 +67,9 @@ func WithToolPath(path string) Option {
 		c.toolPath = path
 		return nil
 	}
+}
+
+func (c *Client) withAuth(ctx context.Context) context.Context {
+	md := metadata.Pairs("WORKER_TOKEN_HEADER", c.token)
+	return metadata.NewOutgoingContext(ctx, md)
 }

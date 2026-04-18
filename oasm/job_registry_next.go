@@ -8,7 +8,7 @@ import (
 )
 
 func (c *Client) JobsNext(ctx context.Context) (*pb.Job, error) {
-	job, err := c.Jobs().Next(ctx, &pb.Worker{
+	job, err := c.Jobs().Next(c.withAuth(ctx), &pb.Worker{
 		Id: c.workerID,
 	})
 	if err != nil {

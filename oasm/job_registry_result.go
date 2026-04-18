@@ -16,7 +16,7 @@ func (c *Client) JobsResult(ctx context.Context, jobID string, payload *pb.DataP
 		},
 	}
 
-	resp, err := c.Jobs().Result(ctx, req)
+	resp, err := c.Jobs().Result(c.withAuth(ctx), req)
 	if err != nil {
 		return fmt.Errorf("failed to submit job result: %w", err)
 	}
