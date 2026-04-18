@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	pb "github.com/oasm-platform/open-asm/grpc-client/go/workers"
 )
@@ -31,16 +32,16 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 		return fmt.Errorf("failed to start download stream: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(c.toolPath), 0o755); err != nil {
+	if err := os.MkdirAll(c.toolPath, 0o755); err != nil {
 		return fmt.Errorf("failed to create tool directory: %w", err)
 	}
 
 	tempGzip := filepath.Join(c.toolPath, "tools_download.tar.gz")
 	file, err := os.Create(tempGzip)
-	defer file.Close()
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
+	defer file.Close()
 
 	for {
 		resp, err := stream.Recv()
@@ -103,6 +104,9 @@ func (c *Client) extractAndChmod(srcGzip string, destDir string) error {
 		}
 
 		target := filepath.Join(destDir, header.Name)
+		if !strings.HasPrefix(target, filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path in archive: %s", header.Name)
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:

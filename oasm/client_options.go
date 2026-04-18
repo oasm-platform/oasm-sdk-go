@@ -2,8 +2,6 @@ package oasm
 
 import (
 	"fmt"
-	"net/url"
-	"strings"
 
 	"google.golang.org/grpc"
 )
@@ -14,13 +12,11 @@ type Option func(*Client) error
 // WithGRPCHost sets the base grpcHost for the Client.
 func WithGRPCHost(grpcHost string) Option {
 	return func(c *Client) error {
-		parsed, err := url.Parse(grpcHost)
-		if err != nil {
-			return err
+		if grpcHost == "" {
+			return fmt.Errorf("grpc host must not be empty")
 		}
 
-		parsed.Path = strings.TrimRight(parsed.Path, "/")
-		c.grpcHost = parsed.String()
+		c.grpcHost = grpcHost
 		return nil
 	}
 }
