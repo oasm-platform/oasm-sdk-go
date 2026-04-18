@@ -35,8 +35,7 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 		return fmt.Errorf("failed to create tool directory: %w", err)
 	}
 
-	tempGzip := c.toolPath + ".tar.gz"
-
+	tempGzip := filepath.Join(c.toolPath, "tools_download.tar.gz")
 	file, err := os.Create(tempGzip)
 	defer file.Close()
 	if err != nil {

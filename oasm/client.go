@@ -46,6 +46,7 @@ func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{
 		grpcHost:   "localhost:16276",
 		configPath: "config.json",
+		toolPath:   "oasm-tools",
 	}
 
 	for _, o := range opts {

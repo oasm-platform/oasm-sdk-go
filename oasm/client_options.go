@@ -11,16 +11,16 @@ import (
 // Option represents a functional option for configuring the Client.
 type Option func(*Client) error
 
-// WithApiURL sets the base API URL for the Client.
-func WithApiURL(apiUrl string) Option {
+// WithGRPCHost sets the base grpcHost for the Client.
+func WithGRPCHost(grpcHost string) Option {
 	return func(c *Client) error {
-		parsed, err := url.Parse(apiUrl)
+		parsed, err := url.Parse(grpcHost)
 		if err != nil {
 			return err
 		}
 
 		parsed.Path = strings.TrimRight(parsed.Path, "/")
-		c.apiURL = parsed.String()
+		c.grpcHost = parsed.String()
 		return nil
 	}
 }
@@ -45,6 +45,28 @@ func WithConn(conn *grpc.ClientConn) Option {
 		}
 
 		c.conn = conn
+		return nil
+	}
+}
+
+func WithConfigPath(path string) Option {
+	return func(c *Client) error {
+		if path == "" {
+			return fmt.Errorf("Config path must not empty")
+		}
+
+		c.configPath = path
+		return nil
+	}
+}
+
+func WithToolPath(path string) Option {
+	return func(c *Client) error {
+		if path == "" {
+			return fmt.Errorf("Tool path must not empty")
+		}
+
+		c.toolPath = path
 		return nil
 	}
 }
