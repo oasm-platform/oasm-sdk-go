@@ -32,16 +32,20 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 		return fmt.Errorf("failed to start download stream: %w", err)
 	}
 
-	if err := os.MkdirAll(c.toolPath, 0o755); err != nil {
+	absToolPath, err := filepath.Abs(c.toolPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve absolute tool path: %w", err)
+	}
+
+	if err := os.MkdirAll(absToolPath, 0o755); err != nil {
 		return fmt.Errorf("failed to create tool directory: %w", err)
 	}
 
-	tempGzip := filepath.Join(c.toolPath, "tools_download.tar.gz")
+	tempGzip := filepath.Join(absToolPath, "tools_download.tar.gz")
 	file, err := os.Create(tempGzip)
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
-	defer file.Close()
 
 	for {
 		resp, err := stream.Recv()
@@ -63,11 +67,11 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 			break
 		}
 	}
+	file.Close()
 
-	destDir := filepath.Dir(c.toolPath)
-	fmt.Printf("Extracting tools to %s...\n", destDir)
+	fmt.Printf("Extracting tools to %s...\n", absToolPath)
 
-	if err := c.extractAndChmod(tempGzip, destDir); err != nil {
+	if err := c.extractAndChmod(tempGzip, absToolPath); err != nil {
 		return fmt.Errorf("failed to extract and set permissions: %w", err)
 	}
 
@@ -94,6 +98,11 @@ func (c *Client) extractAndChmod(srcGzip string, destDir string) error {
 
 	tr := tar.NewReader(gzr)
 
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for destDir: %w", err)
+	}
+
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -103,35 +112,45 @@ func (c *Client) extractAndChmod(srcGzip string, destDir string) error {
 			return fmt.Errorf("error reading tar archive: %w", err)
 		}
 
-		target := filepath.Join(destDir, header.Name)
-		if !strings.HasPrefix(target, filepath.Clean(destDir)+string(os.PathSeparator)) {
-			return fmt.Errorf("illegal file path in archive: %s", header.Name)
+		if header.Name == "" {
+			continue
+		}
+
+		target := filepath.Join(absDestDir, header.Name)
+
+		absTarget, err := filepath.Abs(target)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for target %s: %w", target, err)
+		}
+
+		if !strings.HasPrefix(absTarget, absDestDir+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path (Zip Slip detected): %s", header.Name)
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", target, err)
+			if err := os.MkdirAll(absTarget, 0o755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", absTarget, err)
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fmt.Errorf("failed to create parent directory for %s: %w", target, err)
+			if err := os.MkdirAll(filepath.Dir(absTarget), 0o755); err != nil {
+				return fmt.Errorf("failed to create parent directory for %s: %w", absTarget, err)
 			}
 
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
+			f, err := os.OpenFile(absTarget, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
-				return fmt.Errorf("failed to open file %s: %w", target, err)
+				return fmt.Errorf("failed to open file %s: %w", absTarget, err)
 			}
 
 			if _, err := io.Copy(f, tr); err != nil {
 				f.Close()
-				return fmt.Errorf("failed to extract file %s: %w", target, err)
+				return fmt.Errorf("failed to extract file %s: %w", absTarget, err)
 			}
 			f.Close()
 
 			if runtime.GOOS != "windows" {
-				if err := os.Chmod(target, 0o755); err != nil {
-					return fmt.Errorf("failed to set execution permission for %s: %w", target, err)
+				if err := os.Chmod(absTarget, 0o755); err != nil {
+					return fmt.Errorf("failed to set execution permission for %s: %w", absTarget, err)
 				}
 			}
 		}
