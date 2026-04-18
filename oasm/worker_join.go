@@ -40,6 +40,8 @@ func (c *Client) WorkerJoin(ctx context.Context) (*pb.JoinResponse, error) {
 		return nil, err
 	}
 
+	c.workerID = resp.WorkerId
+
 	if resp.WorkerToken != oldState.WorkerToken {
 		c.token = resp.WorkerToken
 

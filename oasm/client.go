@@ -16,6 +16,7 @@ type Client struct {
 	conn       *grpc.ClientConn
 	grpcHost   string
 	apiKey     string
+	workerID   string
 	configPath string
 	token      string
 	toolPath   string
