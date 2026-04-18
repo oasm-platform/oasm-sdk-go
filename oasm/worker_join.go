@@ -1,61 +1,52 @@
 package oasm
 
 import (
-	"io"
-	"net/http"
+	"context"
+	"log"
 	"os"
-	"time"
+	"runtime"
 
-	"github.com/bytedance/sonic"
+	pb "github.com/oasm-platform/open-asm/grpc-client/go/workers"
 )
 
-// WorkerJoinRequest represents the request payload for joining a worker.
-type WorkerJoinRequest struct {
-	ApiKey    string `json:"apiKey"`
-	Signature string `json:"signature"`
-}
+func getMetadata() *pb.WorkerMetadata {
+	osName := runtime.GOOS
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil
+	}
 
-// WorkerJoinResponse represents the response returned after a worker successfully joins.
-type WorkerJoinResponse struct {
-	Id               string    `json:"id"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
-	LastSeenAt       time.Time `json:"lastSeenAt"`
-	Token            string    `json:"token"`
-	CurrentJobsCount int       `json:"currentJobsCount"`
-	Type             string    `json:"type"`
-	Scope            string    `json:"scope"`
+	return &pb.WorkerMetadata{
+		Name: &hostname,
+		Os:   &osName,
+	}
 }
 
 // WorkerJoin sends a join request to the API using the client's ApiKey.
 // It returns a WorkerJoinResponse on success, or an error if the request fails.
-func (c *Client) WorkerJoin() (*WorkerJoinResponse, error) {
-	reqBody, err := sonic.Marshal(&WorkerJoinRequest{
-		ApiKey:    c.apiKey,
-		Signature: os.Getenv("WORKER_SIGNATURE"),
-	})
+func (c *Client) WorkerJoin(ctx context.Context) (*pb.JoinResponse, error) {
+	req := &pb.JoinRequest{
+		ApiKey:   c.apiKey,
+		Metadata: getMetadata(),
+	}
+
+	oldState, _ := c.loadWorkerState()
+	if oldState != nil {
+		req.Token = &oldState.WorkerToken
+	}
+
+	resp, err := c.Workers().Join(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := c.Post(c.getAPIURL("/api/workers/join"), "application/json", reqBody)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	if resp.WorkerToken != oldState.WorkerToken {
+		c.token = resp.WorkerToken
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+		if err := c.saveWorkerState(resp); err != nil {
+			log.Printf("Warning: failed to save worker state: %v", err)
+		}
 	}
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, ErrorResponse(body)
-	}
-
-	var data WorkerJoinResponse
-	if err = sonic.Unmarshal(body, &data); err != nil {
-		return nil, err
-	}
-	return &data, nil
+	return resp, nil
 }

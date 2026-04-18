@@ -1,49 +1,45 @@
 package oasm
 
 import (
+	"context"
 	"io"
-	"net/http"
+	"log"
 
-	"github.com/bytedance/sonic"
+	pb "github.com/oasm-platform/open-asm/grpc-client/go/workers"
 )
 
-// WorkerAliveRequest represents the request payload for a worker keep-alive signal.
-type WorkerAliveRequest struct {
-	Token string `json:"token"`
-}
+func (c *Client) WorkerAlive(ctx context.Context) error {
+	req := &pb.AliveRequest{
+		WorkerToken: c.token,
+	}
 
-// WorkerAliveResponse represents the response returned by the API
-// after receiving a keep-alive signal from a worker.
-type WorkerAliveResponse struct {
-	Alive string `json:"alive"`
-}
-
-// WorkerAlive sends a keep-alive request to the API to indicate that the worker is still active.
-// It returns a WorkerAliveResponse on success, or an error if the request fails.
-func (c *Client) WorkerAlive(req *WorkerAliveRequest) (*WorkerAliveResponse, error) {
-	reqBody, err := sonic.Marshal(req)
+	stream, err := c.Workers().Alive(ctx, req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	resp, err := c.Post(c.getAPIURL("/api/workers/alive"), "application/json", reqBody)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	log.Println("Connected to core, start capture alive stream...")
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	for {
+		resp, err := stream.Recv()
+
+		if err == io.EOF {
+			log.Println("Server shut down alive stream.")
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Heartbeat - WorkerID: %s, LastSeen: %s, Alive: %v",
+			resp.WorkerId, resp.LastSeenAt, resp.Alive)
+
+		if !resp.Alive {
+			log.Println("Worker dead")
+			return nil
+		}
 	}
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, ErrorResponse(body)
-	}
-
-	var data WorkerAliveResponse
-	if err = sonic.Unmarshal(body, &data); err != nil {
-		return nil, err
-	}
-	return &data, nil
+	return nil
 }
