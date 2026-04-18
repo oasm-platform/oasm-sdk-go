@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/hashicorp/go-retryablehttp"
+	"google.golang.org/grpc"
 )
 
 // Option represents a functional option for configuring the Client.
@@ -29,7 +29,7 @@ func WithApiURL(apiUrl string) Option {
 func WithApiKey(apiKey string) Option {
 	return func(c *Client) error {
 		if apiKey == "" {
-			return fmt.Errorf("invalid api key")
+			return fmt.Errorf("Invalid api key")
 		}
 
 		c.apiKey = apiKey
@@ -37,14 +37,14 @@ func WithApiKey(apiKey string) Option {
 	}
 }
 
-// WithRequest sets a custom retryablehttp.Client for the Client.
-func WithRequest(req *retryablehttp.Client) Option {
+// WithConn sets a custom grpc.ClientConn for the Client.
+func WithConn(conn *grpc.ClientConn) Option {
 	return func(c *Client) error {
-		if req == nil {
-			return fmt.Errorf("request must not nil")
+		if conn == nil {
+			return fmt.Errorf("Connection must not nil")
 		}
 
-		c.req = req
+		c.conn = conn
 		return nil
 	}
 }
