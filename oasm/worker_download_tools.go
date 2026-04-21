@@ -47,6 +47,7 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
+	defer file.Close()
 
 	for {
 		resp, err := stream.Recv()
@@ -54,13 +55,11 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 			break
 		}
 		if err != nil {
-			file.Close()
 			return fmt.Errorf("error receiving stream: %w", err)
 		}
 
 		_, err = file.WriteAt(resp.Chunk, int64(resp.Offset))
 		if err != nil {
-			file.Close()
 			return fmt.Errorf("failed to write chunk at offset %d: %w", resp.Offset, err)
 		}
 
@@ -68,7 +67,6 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 			break
 		}
 	}
-	file.Close()
 
 	fmt.Printf("Extracting tools to %s...\n", absToolPath)
 
@@ -89,12 +87,24 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 				continue
 			}
 
-			command := parts[0]
+			binaryName := parts[0]
 			args := parts[1:]
 
-			cmd := exec.CommandContext(ctx, command, args...)
+			fullPath := filepath.Join(absToolPath, binaryName)
 
+			// if runtime.GOOS == "windows" && !strings.HasSuffix(fullPath, ".exe") {
+			// 	fullPath += ".exe"
+			// }
+
+			if _, err := os.Stat(fullPath); err == nil {
+				binaryName = fullPath
+			}
+
+			cmd := exec.CommandContext(ctx, binaryName, args...)
 			cmd.Dir = absToolPath
+
+			pathEnv := os.Getenv("PATH")
+			cmd.Env = append(os.Environ(), fmt.Sprintf("PATH=%s%c%s", absToolPath, os.PathListSeparator, pathEnv))
 
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
@@ -104,9 +114,7 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 				return fmt.Errorf("failed to execute init command '%s': %w", cmdStr, err)
 			}
 		}
-		fmt.Println("All initialization commands executed successfully!")
 	}
-
 	return nil
 }
 
