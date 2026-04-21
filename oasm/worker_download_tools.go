@@ -16,26 +16,32 @@ import (
 )
 
 func (c *Client) WorkerDownloadTools(ctx context.Context) error {
+	absToolPath, err := filepath.Abs(c.toolPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve absolute tool path: %w", err)
+	}
+
+	if entries, err := os.ReadDir(absToolPath); err == nil && len(entries) > 0 {
+		fmt.Printf("Tools already exist in %s, skipping download.\n", absToolPath)
+		return nil
+	}
+
 	manifest, err := c.Workers().GetManifest(ctx, &pb.GetManifestRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to get manifest: %w", err)
 	}
 
-	downloadUrl := manifest.DownloadToolsUrl
-	if downloadUrl == "" {
+	downloadURL := manifest.DownloadToolsUrl
+	if downloadURL == "" {
 		return fmt.Errorf("download URL is empty")
 	}
 
+	// 3. TẢI TOOLS
 	stream, err := c.Workers().DownloadTools(ctx, &pb.DownloadToolsRequest{
-		Url: downloadUrl,
+		Url: downloadURL,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start download stream: %w", err)
-	}
-
-	absToolPath, err := filepath.Abs(c.toolPath)
-	if err != nil {
-		return fmt.Errorf("failed to resolve absolute tool path: %w", err)
 	}
 
 	if err := os.MkdirAll(absToolPath, 0o755); err != nil {
@@ -47,7 +53,6 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
-	defer file.Close()
 
 	for {
 		resp, err := stream.Recv()
@@ -55,32 +60,29 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 			break
 		}
 		if err != nil {
+			file.Close()
 			return fmt.Errorf("error receiving stream: %w", err)
 		}
 
 		_, err = file.WriteAt(resp.Chunk, int64(resp.Offset))
 		if err != nil {
-			return fmt.Errorf("failed to write chunk at offset %d: %w", resp.Offset, err)
+			file.Close()
+			return fmt.Errorf("failed to write chunk: %w", err)
 		}
 
 		if resp.Eof {
 			break
 		}
 	}
+	file.Close()
 
 	fmt.Printf("Extracting tools to %s...\n", absToolPath)
-
 	if err := c.extractAndChmod(tempGzip, absToolPath); err != nil {
 		return fmt.Errorf("failed to extract and set permissions: %w", err)
 	}
+	_ = os.Remove(tempGzip)
 
-	if err := os.Remove(tempGzip); err != nil {
-		fmt.Printf("Warning: failed to remove temporary file %s: %v\n", tempGzip, err)
-	}
-
-	fmt.Println("Tools updated and execution permissions granted successfully!")
 	if len(manifest.InitCommands) > 0 {
-		fmt.Println("Executing initialization commands...")
 		for _, cmdStr := range manifest.InitCommands {
 			parts := strings.Fields(cmdStr)
 			if len(parts) == 0 {
@@ -91,10 +93,11 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 			args := parts[1:]
 
 			fullPath := filepath.Join(absToolPath, binaryName)
-
-			// if runtime.GOOS == "windows" && !strings.HasSuffix(fullPath, ".exe") {
-			// 	fullPath += ".exe"
-			// }
+			if runtime.GOOS == "windows" && !strings.HasSuffix(fullPath, ".exe") {
+				if _, err := os.Stat(fullPath + ".exe"); err == nil {
+					fullPath += ".exe"
+				}
+			}
 
 			if _, err := os.Stat(fullPath); err == nil {
 				binaryName = fullPath
@@ -102,41 +105,37 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 
 			cmd := exec.CommandContext(ctx, binaryName, args...)
 			cmd.Dir = absToolPath
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 
 			pathEnv := os.Getenv("PATH")
 			cmd.Env = append(os.Environ(), fmt.Sprintf("PATH=%s%c%s", absToolPath, os.PathListSeparator, pathEnv))
 
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-
-			fmt.Printf("Running: %s\n", cmdStr)
+			fmt.Printf("Running init command: %s\n", cmdStr)
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("failed to execute init command '%s': %w", cmdStr, err)
 			}
 		}
 	}
+
+	fmt.Println("All steps completed successfully!")
 	return nil
 }
 
 func (c *Client) extractAndChmod(srcGzip string, destDir string) error {
 	file, err := os.Open(srcGzip)
 	if err != nil {
-		return fmt.Errorf("failed to open source gzip: %w", err)
+		return err
 	}
 	defer file.Close()
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
-		return fmt.Errorf("failed to create gzip reader: %w", err)
+		return err
 	}
 	defer gzr.Close()
 
 	tr := tar.NewReader(gzr)
-
-	absDestDir, err := filepath.Abs(destDir)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute path for destDir: %w", err)
-	}
 
 	for {
 		header, err := tr.Next()
@@ -144,48 +143,39 @@ func (c *Client) extractAndChmod(srcGzip string, destDir string) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("error reading tar archive: %w", err)
+			return err
 		}
 
-		if header.Name == "" {
-			continue
-		}
+		target := filepath.Join(destDir, header.Name)
 
-		target := filepath.Join(absDestDir, header.Name)
-
-		absTarget, err := filepath.Abs(target)
-		if err != nil {
-			return fmt.Errorf("failed to get absolute path for target %s: %w", target, err)
-		}
-
-		if !strings.HasPrefix(absTarget, absDestDir+string(os.PathSeparator)) {
-			return fmt.Errorf("illegal file path (Zip Slip detected): %s", header.Name)
+		// Zip Slip protection
+		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)) {
+			return fmt.Errorf("illegal file path: %s", header.Name)
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(absTarget, 0o755); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", absTarget, err)
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(absTarget), 0o755); err != nil {
-				return fmt.Errorf("failed to create parent directory for %s: %w", absTarget, err)
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
 			}
 
-			f, err := os.OpenFile(absTarget, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
-			defer f.Close()
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
-				return fmt.Errorf("failed to open file %s: %w", absTarget, err)
+				return err
 			}
 
 			if _, err := io.Copy(f, tr); err != nil {
-				return fmt.Errorf("failed to extract file %s: %w", absTarget, err)
+				f.Close()
+				return err
 			}
+			f.Close()
 
 			if runtime.GOOS != "windows" {
-				if err := os.Chmod(absTarget, 0o755); err != nil {
-					return fmt.Errorf("failed to set execution permission for %s: %w", absTarget, err)
-				}
+				_ = os.Chmod(target, 0o755)
 			}
 		}
 	}
