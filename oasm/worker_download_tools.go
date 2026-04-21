@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -80,6 +81,32 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	}
 
 	fmt.Println("Tools updated and execution permissions granted successfully!")
+	if len(manifest.InitCommands) > 0 {
+		fmt.Println("Executing initialization commands...")
+		for _, cmdStr := range manifest.InitCommands {
+			parts := strings.Fields(cmdStr)
+			if len(parts) == 0 {
+				continue
+			}
+
+			command := parts[0]
+			args := parts[1:]
+
+			cmd := exec.CommandContext(ctx, command, args...)
+
+			cmd.Dir = absToolPath
+
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			fmt.Printf("Running: %s\n", cmdStr)
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to execute init command '%s': %w", cmdStr, err)
+			}
+		}
+		fmt.Println("All initialization commands executed successfully!")
+	}
+
 	return nil
 }
 
@@ -138,15 +165,14 @@ func (c *Client) extractAndChmod(srcGzip string, destDir string) error {
 			}
 
 			f, err := os.OpenFile(absTarget, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
+			defer f.Close()
 			if err != nil {
 				return fmt.Errorf("failed to open file %s: %w", absTarget, err)
 			}
 
 			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
 				return fmt.Errorf("failed to extract file %s: %w", absTarget, err)
 			}
-			f.Close()
 
 			if runtime.GOOS != "windows" {
 				if err := os.Chmod(absTarget, 0o755); err != nil {
