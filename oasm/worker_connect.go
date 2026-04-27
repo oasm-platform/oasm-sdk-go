@@ -2,6 +2,7 @@ package oasm
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 )
@@ -16,7 +17,7 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 	currentDelay := baseDelay
 
 	for {
-		log.Println("Attempting to connect to Open ASM Core...")
+		Logger("Connect").Verbose("Attempting to connect to Open ASM Core...")
 
 		_, err := c.WorkerJoin(ctx)
 		if err != nil {
@@ -39,7 +40,7 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 		}
 
 		currentDelay = baseDelay
-		log.Printf("Join successful. Worker ID: %s", c.workerID)
+		Logger("Connect").Success(fmt.Sprintf("Join successful. Worker ID: %s", c.workerID))
 
 		select {
 		case ready <- true:

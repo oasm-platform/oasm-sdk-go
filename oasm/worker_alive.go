@@ -19,7 +19,7 @@ func (c *Client) WorkerAlive(ctx context.Context) error {
 		return err
 	}
 
-	Logger("Alive").Log("Connected to core, start capture alive stream...")
+	Logger("Alive").Success("Connected to core, start capture alive stream...")
 
 	for {
 		resp, err := stream.Recv()
