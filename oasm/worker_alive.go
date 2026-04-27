@@ -2,6 +2,7 @@ package oasm
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 
@@ -32,11 +33,11 @@ func (c *Client) WorkerAlive(ctx context.Context) error {
 			return err
 		}
 
-		log.Printf("Heartbeat - WorkerID: %s, LastSeen: %s, Alive: %v",
-			resp.WorkerId, resp.LastSeenAt, resp.Alive)
+		Logger("Alive").Success(fmt.Sprintf("Heartbeat - WorkerID: %s, LastSeen: %s, Alive: %v",
+			resp.WorkerId, resp.LastSeenAt, resp.Alive))
 
 		if !resp.Alive {
-			log.Println("Worker dead")
+			Logger("Alive").Error("Worker dead")
 			return nil
 		}
 	}
