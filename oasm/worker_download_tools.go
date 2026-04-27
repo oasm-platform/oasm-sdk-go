@@ -22,7 +22,7 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	}
 
 	if entries, err := os.ReadDir(absToolPath); err == nil && len(entries) > 0 {
-		fmt.Printf("Tools already exist in %s, skipping download.\n", absToolPath)
+		Logger("Sync").Log(fmt.Sprintf("Tools already exist in %s, skipping download.\n", absToolPath))
 		return nil
 	}
 

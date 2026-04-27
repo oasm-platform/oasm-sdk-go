@@ -14,7 +14,6 @@ const (
 	colorBlue   = "\033[34m"
 	colorPurple = "\033[35m"
 	colorCyan   = "\033[36m"
-	colorGray   = "\033[37m"
 )
 
 type LoggerType struct {
