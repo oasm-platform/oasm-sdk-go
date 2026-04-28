@@ -69,7 +69,7 @@ func WithToolPath(path string) Option {
 	}
 }
 
-func (c *Client) withAuth(ctx context.Context) context.Context {
+func (c *Client) WithAuth(ctx context.Context) context.Context {
 	md := metadata.Pairs("worker-token", c.token)
 	return metadata.NewOutgoingContext(ctx, md)
 }

@@ -1,3 +1,4 @@
+// Package oasm provide sdk of oasm-platform
 package oasm
 
 import (
