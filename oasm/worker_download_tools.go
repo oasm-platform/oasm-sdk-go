@@ -21,66 +21,67 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 		return fmt.Errorf("failed to resolve absolute tool path: %w", err)
 	}
 
-	if entries, err := os.ReadDir(absToolPath); err == nil && len(entries) > 0 {
-		Logger("Sync").Log(fmt.Sprintf("Tools already exist in %s, skipping download.\n", absToolPath))
-		return nil
-	}
-
 	manifest, err := c.Workers().GetManifest(ctx, &pb.GetManifestRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to get manifest: %w", err)
 	}
 
-	downloadURL := manifest.DownloadToolsUrl
-	if downloadURL == "" {
-		return fmt.Errorf("download URL is empty")
-	}
+	entries, err := os.ReadDir(absToolPath)
+	isDirEmpty := err != nil || len(entries) == 0
 
-	// 3. TẢI TOOLS
-	stream, err := c.Workers().DownloadTools(ctx, &pb.DownloadToolsRequest{
-		Url: downloadURL,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to start download stream: %w", err)
-	}
-
-	if err := os.MkdirAll(absToolPath, 0o755); err != nil {
-		return fmt.Errorf("failed to create tool directory: %w", err)
-	}
-
-	tempGzip := filepath.Join(absToolPath, "tools_download.tar.gz")
-	file, err := os.Create(tempGzip)
-	if err != nil {
-		return fmt.Errorf("failed to create temporary file: %w", err)
-	}
-
-	for {
-		resp, err := stream.Recv()
-		if err == io.EOF {
-			break
+	if isDirEmpty {
+		downloadURL := manifest.DownloadToolsUrl
+		if downloadURL == "" {
+			return fmt.Errorf("download URL is empty")
 		}
+
+		stream, err := c.Workers().DownloadTools(ctx, &pb.DownloadToolsRequest{
+			Url: downloadURL,
+		})
 		if err != nil {
-			file.Close()
-			return fmt.Errorf("error receiving stream: %w", err)
+			return fmt.Errorf("failed to start download stream: %w", err)
 		}
 
-		_, err = file.WriteAt(resp.Chunk, int64(resp.Offset))
+		if err := os.MkdirAll(absToolPath, 0o755); err != nil {
+			return fmt.Errorf("failed to create tool directory: %w", err)
+		}
+
+		tempGzip := filepath.Join(absToolPath, "tools_download.tar.gz")
+		file, err := os.Create(tempGzip)
 		if err != nil {
-			file.Close()
-			return fmt.Errorf("failed to write chunk: %w", err)
+			return fmt.Errorf("failed to create temporary file: %w", err)
 		}
 
-		if resp.Eof {
-			break
-		}
-	}
-	file.Close()
+		for {
+			resp, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				file.Close()
+				return fmt.Errorf("error receiving stream: %w", err)
+			}
 
-	fmt.Printf("Extracting tools to %s...\n", absToolPath)
-	if err := c.extractAndChmod(tempGzip, absToolPath); err != nil {
-		return fmt.Errorf("failed to extract and set permissions: %w", err)
+			_, err = file.WriteAt(resp.Chunk, int64(resp.Offset))
+			if err != nil {
+				file.Close()
+				return fmt.Errorf("failed to write chunk: %w", err)
+			}
+
+			if resp.Eof {
+				break
+			}
+		}
+		file.Close()
+
+		fmt.Printf("Extracting tools to %s...\n", absToolPath)
+		if err := c.extractAndChmod(tempGzip, absToolPath); err != nil {
+			return fmt.Errorf("failed to extract and set permissions: %w", err)
+		}
+		_ = os.Remove(tempGzip)
+	} else {
+		Logger("Sync").Log(fmt.Sprintf("Tools exist in %s, skipping download.\n", absToolPath))
 	}
-	_ = os.Remove(tempGzip)
 
 	if len(manifest.InitCommands) > 0 {
 		for _, cmdStr := range manifest.InitCommands {
@@ -148,7 +149,7 @@ func (c *Client) extractAndChmod(srcGzip string, destDir string) error {
 
 		target := filepath.Join(destDir, header.Name)
 
-		// Zip Slip protection
+		// Prevent Zip Slip
 		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)) {
 			return fmt.Errorf("illegal file path: %s", header.Name)
 		}
