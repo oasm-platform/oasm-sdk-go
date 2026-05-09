@@ -88,3 +88,11 @@ func (c *Client) Jobs() jobRegistryPb.JobsRegistryServiceClient {
 	})
 	return c.job
 }
+
+func (c *Client) WorkerID() string {
+    return c.workerID
+}
+
+func (c *Client) Token() string {
+    return c.token
+}
