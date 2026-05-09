@@ -1,19 +1,32 @@
+// Package oasm provide sdk of oasm-platform
 package oasm
 
 import (
 	"fmt"
-	"strings"
+	"sync"
 
-	"github.com/hashicorp/go-retryablehttp"
+	jobRegistryPb "github.com/oasm-platform/open-asm/grpc-client/go/jobs_registry"
+	workerPb "github.com/oasm-platform/open-asm/grpc-client/go/workers"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Client represents an HTTP client wrapper with configurable options.
-// It uses retryablehttp.Client for automatic retries and can be customized
+// Client represents an grpc wrapper with configurable options.
 // with an API URL and API key via functional options.
 type Client struct {
-	req    *retryablehttp.Client
-	apiURL string
-	apiKey string
+	conn     *grpc.ClientConn
+	grpcHost string
+	apiKey   string
+	workerID string
+	// configPath string
+	token    string
+	toolPath string
+
+	workerOnce sync.Once
+	worker     workerPb.WorkersServiceClient
+
+	jobOnce sync.Once
+	job     jobRegistryPb.JobsRegistryServiceClient
 }
 
 // NewClient creates a new Client instance with the given options.
@@ -31,26 +44,47 @@ type Client struct {
 // The functional options (WithApiURL, WithApiKey, etc.) allow you to
 // configure the client in a flexible and extensible way without
 // changing the constructor signature.
-func NewClient(opts ...Option) *Client {
+func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{
-		req:    retryablehttp.NewClient(),
-		apiURL: "http://localhost:6277",
+		grpcHost: "localhost:16276",
+		toolPath: "oasm-tools",
+		// configPath: "config.json",
 	}
+
 	for _, o := range opts {
-		o(c)
+		if err := o(c); err != nil {
+			return nil, fmt.Errorf("option error: %w", err)
+		}
 	}
-	return c
+
+	if c.conn == nil {
+		conn, err := grpc.NewClient(c.grpcHost, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to dial: %w", err)
+		}
+		c.conn = conn
+	}
+
+	return c, nil
 }
 
-func (c *Client) getAPIURL(path string, a ...any) string {
-	base := strings.TrimRight(c.apiURL, "/")
-	if len(a) > 0 {
-		path = fmt.Sprintf(path, a...)
+func (c *Client) Close() error {
+	if c.conn != nil {
+		return c.conn.Close()
 	}
+	return nil
+}
 
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
+func (c *Client) Workers() workerPb.WorkersServiceClient {
+	c.workerOnce.Do(func() {
+		c.worker = workerPb.NewWorkersServiceClient(c.conn)
+	})
+	return c.worker
+}
 
-	return base + path
+func (c *Client) Jobs() jobRegistryPb.JobsRegistryServiceClient {
+	c.jobOnce.Do(func() {
+		c.job = jobRegistryPb.NewJobsRegistryServiceClient(c.conn)
+	})
+	return c.job
 }

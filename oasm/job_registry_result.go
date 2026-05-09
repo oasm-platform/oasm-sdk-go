@@ -1,44 +1,28 @@
 package oasm
 
 import (
-	"io"
-	"net/http"
+	"context"
+	"fmt"
 
-	"github.com/bytedance/sonic"
+	pb "github.com/oasm-platform/open-asm/grpc-client/go/jobs_registry"
 )
 
-type JobsResultParam struct {
-	WorkerID string
-}
-
-type JobsResultRequest struct {
-	JobID string `json:"jobId,omitempty"`
-	Data  struct {
-		Error   bool   `json:"error,omitempty"`
-		Raw     string `json:"raw,omitempty"`
-		Payload any    `json:"payload,omitempty"`
-	} `json:"data,omitempty"`
-}
-
-func (c *Client) JobsResult(param *JobsResultParam, req *JobsResultRequest) error {
-	reqBody, err := sonic.Marshal(req)
-	if err != nil {
-		return err
+func (c *Client) JobsResult(ctx context.Context, jobID string, payload *pb.DataPayloadResult) error {
+	req := &pb.JobResultRequest{
+		WorkerId: c.workerID,
+		Data: &pb.UpdateResultDto{
+			JobId: jobID,
+			Data:  payload,
+		},
 	}
 
-	resp, err := c.Post(c.getAPIURL("/api/jobs-registry/%s/result", param.WorkerID), "application/json", reqBody)
+	resp, err := c.Jobs().Result(c.WithAuth(ctx), req)
 	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to submit job result: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return ErrorResponse(body)
+	if !resp.Success {
+		return fmt.Errorf("server rejected the result submission")
 	}
 
 	return nil

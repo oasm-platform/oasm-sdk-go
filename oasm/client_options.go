@@ -1,26 +1,24 @@
 package oasm
 
 import (
+	"context"
 	"fmt"
-	"net/url"
-	"strings"
 
-	"github.com/hashicorp/go-retryablehttp"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // Option represents a functional option for configuring the Client.
 type Option func(*Client) error
 
-// WithApiURL sets the base API URL for the Client.
-func WithApiURL(apiUrl string) Option {
+// WithGRPCHost sets the base grpcHost for the Client.
+func WithGRPCHost(grpcHost string) Option {
 	return func(c *Client) error {
-		parsed, err := url.Parse(apiUrl)
-		if err != nil {
-			return err
+		if grpcHost == "" {
+			return fmt.Errorf("grpc host must not be empty")
 		}
 
-		parsed.Path = strings.TrimRight(parsed.Path, "/")
-		c.apiURL = parsed.String()
+		c.grpcHost = grpcHost
 		return nil
 	}
 }
@@ -37,14 +35,41 @@ func WithApiKey(apiKey string) Option {
 	}
 }
 
-// WithRequest sets a custom retryablehttp.Client for the Client.
-func WithRequest(req *retryablehttp.Client) Option {
+// WithConn sets a custom grpc.ClientConn for the Client.
+func WithConn(conn *grpc.ClientConn) Option {
 	return func(c *Client) error {
-		if req == nil {
-			return fmt.Errorf("request must not nil")
+		if conn == nil {
+			return fmt.Errorf("connection must not nil")
 		}
 
-		c.req = req
+		c.conn = conn
 		return nil
 	}
+}
+
+// func WithConfigPath(path string) Option {
+// 	return func(c *Client) error {
+// 		if path == "" {
+// 			return fmt.Errorf("Config path must not empty")
+// 		}
+//
+// 		c.configPath = path
+// 		return nil
+// 	}
+// }
+
+func WithToolPath(path string) Option {
+	return func(c *Client) error {
+		if path == "" {
+			return fmt.Errorf("tool path must not empty")
+		}
+
+		c.toolPath = path
+		return nil
+	}
+}
+
+func (c *Client) WithAuth(ctx context.Context) context.Context {
+	md := metadata.Pairs("worker-token", c.token)
+	return metadata.NewOutgoingContext(ctx, md)
 }
