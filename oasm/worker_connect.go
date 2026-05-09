@@ -2,15 +2,11 @@ package oasm
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"time"
 )
 
-// WorkerConnect manages the full lifecycle of the worker's connection.
-// It handles initial Join, maintains the Alive stream, and automatically reconnects on failure.
 func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
-	logger := NewLogger("Connect")
+	l := NewLogger("Worker.Connect")
 	const (
 		baseDelay = 2 * time.Second
 		maxDelay  = 30 * time.Second
@@ -18,7 +14,7 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 	currentDelay := baseDelay
 
 	for {
-		logger.Verbose("Attempting to connect to Open ASM Core...")
+		l.Verbose("Attempting to connect to Open ASM Core...")
 
 		_, err := c.WorkerJoin(ctx)
 		if err != nil {
@@ -27,9 +23,9 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 			default:
 			}
 
-			logger.Error("Join failed: %v. Retrying in %v...", err, currentDelay)
+			l.ErrorE("Join failed, retrying in %v", err, currentDelay)
 
-			if !c.waitWithContext(ctx, currentDelay, logger) {
+			if !c.waitWithContext(ctx, currentDelay, l) {
 				return
 			}
 
@@ -41,7 +37,7 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 		}
 
 		currentDelay = baseDelay
-		logger.Success("Join successful. Worker ID: %s", c.workerID)
+		l.Success("Join successful. Worker ID: %s", c.workerID)
 
 		select {
 		case ready <- true:
@@ -56,21 +52,21 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 		}
 
 		if err != nil {
-			logger.Warning("Alive stream interrupted: %v. Reconnecting...", err)
+			l.Warning("Alive stream interrupted: %v. Reconnecting...", err)
 		} else {
-			logger.Info("Alive stream closed by server. Re-joining...")
+			l.Info("Alive stream closed by server. Re-joining...")
 		}
 
-		if !c.waitWithContext(ctx, 1*time.Second, logger) {
+		if !c.waitWithContext(ctx, 1*time.Second, l) {
 			return
 		}
 	}
 }
 
-func (c *Client) waitWithContext(ctx context.Context, delay time.Duration, logger *LoggerType) bool {
+func (c *Client) waitWithContext(ctx context.Context, delay time.Duration, l *LoggerType) bool {
 	select {
 	case <-ctx.Done():
-		logger.Warning("WorkerConnect stopping: context cancelled.")
+		l.Warning("WorkerConnect stopping: context cancelled.")
 		return false
 	case <-time.After(delay):
 		return true
