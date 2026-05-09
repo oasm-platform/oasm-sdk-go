@@ -38,20 +38,18 @@ func (l *LoggerType) log(color string, message string) {
 }
 
 // Log logs a message using the LoggerType.
-//
 // The message parameter is the message to be logged.
 func (l *LoggerType) Log(message string) {
 	l.log(colorReset, message)
 }
 
-// LogError logs an error message using the LoggerType.
-//
+// Error logs an error message using the LoggerType.
 // The message parameter is the error message to be logged.
 func (l *LoggerType) Error(message string) {
 	l.log(colorRed, message)
 }
 
-// LogSuccess logs a success message using the LoggerType.
+// Success logs a success message using the LoggerType.
 func (l *LoggerType) Success(message string) {
 	l.log(colorGreen, message)
 }

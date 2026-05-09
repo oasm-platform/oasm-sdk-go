@@ -14,13 +14,13 @@ import (
 // Client represents an grpc wrapper with configurable options.
 // with an API URL and API key via functional options.
 type Client struct {
-	conn       *grpc.ClientConn
-	grpcHost   string
-	apiKey     string
-	workerID   string
-	configPath string
-	token      string
-	toolPath   string
+	conn     *grpc.ClientConn
+	grpcHost string
+	apiKey   string
+	workerID string
+	// configPath string
+	token    string
+	toolPath string
 
 	workerOnce sync.Once
 	worker     workerPb.WorkersServiceClient
@@ -46,9 +46,9 @@ type Client struct {
 // changing the constructor signature.
 func NewClient(opts ...Option) (*Client, error) {
 	c := &Client{
-		grpcHost:   "localhost:16276",
-		configPath: "config.json",
-		toolPath:   "oasm-tools",
+		grpcHost: "localhost:16276",
+		toolPath: "oasm-tools",
+		// configPath: "config.json",
 	}
 
 	for _, o := range opts {

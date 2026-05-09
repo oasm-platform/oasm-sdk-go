@@ -27,7 +27,7 @@ func WithGRPCHost(grpcHost string) Option {
 func WithApiKey(apiKey string) Option {
 	return func(c *Client) error {
 		if apiKey == "" {
-			return fmt.Errorf("Invalid api key")
+			return fmt.Errorf("invalid api key")
 		}
 
 		c.apiKey = apiKey
@@ -39,7 +39,7 @@ func WithApiKey(apiKey string) Option {
 func WithConn(conn *grpc.ClientConn) Option {
 	return func(c *Client) error {
 		if conn == nil {
-			return fmt.Errorf("Connection must not nil")
+			return fmt.Errorf("connection must not nil")
 		}
 
 		c.conn = conn
@@ -47,21 +47,21 @@ func WithConn(conn *grpc.ClientConn) Option {
 	}
 }
 
-func WithConfigPath(path string) Option {
-	return func(c *Client) error {
-		if path == "" {
-			return fmt.Errorf("Config path must not empty")
-		}
-
-		c.configPath = path
-		return nil
-	}
-}
+// func WithConfigPath(path string) Option {
+// 	return func(c *Client) error {
+// 		if path == "" {
+// 			return fmt.Errorf("Config path must not empty")
+// 		}
+//
+// 		c.configPath = path
+// 		return nil
+// 	}
+// }
 
 func WithToolPath(path string) Option {
 	return func(c *Client) error {
 		if path == "" {
-			return fmt.Errorf("Tool path must not empty")
+			return fmt.Errorf("tool path must not empty")
 		}
 
 		c.toolPath = path

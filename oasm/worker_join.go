@@ -2,7 +2,6 @@ package oasm
 
 import (
 	"context"
-	"log"
 	"os"
 	"runtime"
 
@@ -30,11 +29,6 @@ func (c *Client) WorkerJoin(ctx context.Context) (*pb.JoinResponse, error) {
 		Metadata: getMetadata(),
 	}
 
-	oldState, _ := c.loadWorkerState()
-	if oldState != nil {
-		req.Token = &oldState.WorkerToken
-	}
-
 	resp, err := c.Workers().Join(ctx, req)
 	if err != nil {
 		return nil, err
@@ -42,12 +36,6 @@ func (c *Client) WorkerJoin(ctx context.Context) (*pb.JoinResponse, error) {
 
 	c.workerID = resp.WorkerId
 	c.token = resp.WorkerToken
-
-	if oldState == nil || resp.WorkerToken != oldState.WorkerToken {
-		if err := c.saveWorkerState(resp); err != nil {
-			log.Printf("Warning: failed to save worker state: %v", err)
-		}
-	}
 
 	return resp, nil
 }
