@@ -1,74 +1,41 @@
 package oasm
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 )
 
-// Colors for log levels
-const (
-	colorReset  = "\033[0m"
-	colorRed    = "\033[31m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorBlue   = "\033[34m"
-	colorPurple = "\033[35m"
-	colorCyan   = "\033[36m"
-)
-
 type LoggerType struct {
-	name string
+	handler slog.Handler
+	name    string
 }
 
-func Logger(name string) *LoggerType {
+func NewLogger(name string) *LoggerType {
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
 	return &LoggerType{
-		name: name,
+		handler: slog.NewTextHandler(os.Stdout, opts),
+		name:    name,
 	}
 }
 
-func (l *LoggerType) log(color string, message string) {
-	currentTime := time.Now()
-	// Define the layout for formatting
-	layout := "02/01/2006, 3:04:05 pm"
-
-	// Format the current time according to the layout
-	currentTimeStr := currentTime.Format(layout)
-
-	fmt.Printf("%s[%s] - [%s] - %s%s\n", color, l.name, currentTimeStr, message, colorReset)
+func (l *LoggerType) log(level slog.Level, color string, msg string, args ...any) {
+	fmt.Printf("%s[%s] - [%s] - %s%s\n",
+		color,
+		l.name,
+		time.Now().Format("02/01/2006, 3:04:05 pm"),
+		fmt.Sprintf(msg, args...),
+		colorReset,
+	)
 }
 
-// Log logs a message using the LoggerType.
-// The message parameter is the message to be logged.
-func (l *LoggerType) Log(message string) {
-	l.log(colorReset, message)
-}
-
-// Error logs an error message using the LoggerType.
-// The message parameter is the error message to be logged.
-func (l *LoggerType) Error(message string) {
-	l.log(colorRed, message)
-}
-
-// Success logs a success message using the LoggerType.
-func (l *LoggerType) Success(message string) {
-	l.log(colorGreen, message)
-}
-
-// Warning logs a warning message.
-//
-// message is the message to be logged.
-func (l *LoggerType) Warning(message string) {
-	l.log(colorYellow, message)
-}
-
-// Debug logs a debug message using the LoggerType.
-// The message parameter is the debug message to be logged.
-func (l *LoggerType) Debug(message string) {
-	l.log(colorPurple, message)
-}
-
-// Verbose logs a verbose message using the LoggerType.
-// The message parameter is the verbose message to be logged.
-func (l *LoggerType) Verbose(message string) {
-	l.log(colorCyan, message)
-}
+func (l *LoggerType) Info(msg string, args ...any)    { l.log(slog.LevelInfo, colorReset, msg, args...) }
+func (l *LoggerType) Success(msg string, args ...any) { l.log(slog.LevelInfo, colorGreen, msg, args...) }
+func (l *LoggerType) Error(msg string, args ...any)   { l.log(slog.LevelError, colorRed, msg, args...) }
+func (l *LoggerType) Warning(msg string, args ...any) { l.log(slog.LevelWarn, colorYellow, msg, args...) }
+func (l *LoggerType) Debug(msg string, args ...any)   { l.log(slog.LevelDebug, colorPurple, msg, args...) }
+func (l *LoggerType) Verbose(msg string, args ...any) { l.log(slog.LevelDebug, colorCyan, msg, args...) }

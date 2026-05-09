@@ -10,6 +10,8 @@ import (
 )
 
 func (c *Client) WorkerAlive(ctx context.Context) error {
+	logger := NewLogger("Alive")
+
 	req := &pb.AliveRequest{
 		WorkerToken: c.token,
 	}
@@ -19,28 +21,25 @@ func (c *Client) WorkerAlive(ctx context.Context) error {
 		return err
 	}
 
-	Logger("Alive").Success("Connected to core, start capture alive stream...")
+	logger.Success("Connected to core, start capture alive stream...")
 
 	for {
 		resp, err := stream.Recv()
-
 		if err == io.EOF {
-			log.Println("Server shut down alive stream.")
+			logger.Warning("Server shut down alive stream.")
 			break
 		}
-
 		if err != nil {
 			return err
 		}
 
-		Logger("Alive").Success(fmt.Sprintf("Heartbeat - WorkerID: %s, LastSeen: %s, Alive: %v",
-			resp.WorkerId, resp.LastSeenAt, resp.Alive))
+		logger.Success("Heartbeat - WorkerID: %s, LastSeen: %s, Alive: %v",
+			resp.WorkerId, resp.LastSeenAt, resp.Alive)
 
 		if !resp.Alive {
-			Logger("Alive").Error("Worker dead")
+			logger.Error("Worker dead")
 			return nil
 		}
 	}
-
 	return nil
 }
