@@ -14,9 +14,7 @@
 - [Usage Examples](#usage-examples)
 - [API Reference](#api-reference)
 - [Configuration](#configuration)
-- [Contributing](#contributing)
 - [License](#license)
-- [Support](#support)
 
 ## Overview
 
@@ -49,7 +47,7 @@ go get -u github.com/oasm-platform/oasm-sdk-go
 import "github.com/oasm-platform/oasm-sdk-go/oasm"
 ```
 
-## Basic usage
+## Quick Start
 
 ```go
 package main
@@ -109,7 +107,7 @@ func main() {
 }
 ```
 
-## Examples
+## Usage Examples
 
 ### Client Configuration
 
@@ -228,8 +226,6 @@ createdAt := client.GetCreatedAtTime(job)
 fmt.Printf("Asset created at: %v\n", createdAt)
 ```
 
----
-
 ## API Reference
 
 ### `NewClient(opts ...Option) (*Client, error)`
@@ -257,8 +253,6 @@ Creates a new `Client` instance with the provided configuration options. Default
 ### `WithAuth(ctx) context.Context`
 
 Attaches the worker's authentication token to the gRPC metadata of the given context. Used internally for authenticated job registry calls.
-
----
 
 ## Configuration Options
 
