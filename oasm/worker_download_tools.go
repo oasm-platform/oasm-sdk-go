@@ -56,22 +56,44 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	statePath := filepath.Join(absToolPath, ".tool_versions.json")
 
 	oldState := loadToolState(statePath)
-	newState := make(map[string]bool)
+	newState := make(map[string][]string)
 
 	for _, toolUrl := range osTools {
 		fileName := filepath.Base(toolUrl)
 
-		newState[fileName] = true
-
-		if oldState[fileName] {
+		if extractedFiles, exists := oldState[fileName]; exists {
 			l.Success("Tools cache hit: %s", fileName)
+			newState[fileName] = extractedFiles
 			continue
 		}
 
 		l.Info("Downloading tool: %s", fileName)
-		if err := c.downloadAndExtractSingleTool(ctx, toolUrl, absToolPath, fileName); err != nil {
+		extractedFiles, err := c.downloadAndExtractSingleTool(ctx, toolUrl, absToolPath, fileName)
+		if err != nil {
 			l.ErrorE("Failed to download/extract tool", err, fileName)
 			return err
+		}
+
+		newState[fileName] = extractedFiles
+	}
+
+	activeFiles := make(map[string]bool)
+	for _, files := range newState {
+		for _, f := range files {
+			activeFiles[f] = true
+		}
+	}
+
+	for oldFileName, oldExtractedFiles := range oldState {
+		if _, stillExists := newState[oldFileName]; !stillExists {
+			l.Info("Cleaning up obsolete tool: %s", oldFileName)
+			for _, file := range oldExtractedFiles {
+				if !activeFiles[file] {
+					fullPath := filepath.Join(absToolPath, file)
+					_ = os.Remove(fullPath)
+					l.Verbose("Deleted unused file: %s", file)
+				}
+			}
 		}
 	}
 
@@ -94,20 +116,19 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) downloadAndExtractSingleTool(ctx context.Context, url string, destDir string, fileName string) error {
+func (c *Client) downloadAndExtractSingleTool(ctx context.Context, url string, destDir string, fileName string) ([]string, error) {
 	dlLog := NewLogger("Worker.Download")
+	var extractedFiles []string
 
-	stream, err := c.Workers().Storage(ctx, &pb.StorageRequest{
-		Path: url,
-	})
+	stream, err := c.Workers().Storage(ctx, &pb.StorageRequest{Path: url})
 	if err != nil {
-		return fmt.Errorf("failed to start download stream: %w", err)
+		return nil, fmt.Errorf("failed to start download stream: %w", err)
 	}
 
 	tempFile := filepath.Join(destDir, fileName)
 	file, err := os.Create(tempFile)
 	if err != nil {
-		return fmt.Errorf("failed to create temporary file: %w", err)
+		return nil, fmt.Errorf("failed to create temporary file: %w", err)
 	}
 
 	for {
@@ -118,15 +139,13 @@ func (c *Client) downloadAndExtractSingleTool(ctx context.Context, url string, d
 		if err != nil {
 			file.Close()
 			os.Remove(tempFile)
-			return fmt.Errorf("error receiving stream: %w", err)
+			return nil, fmt.Errorf("error receiving stream: %w", err)
 		}
-
 		if _, err = file.WriteAt(resp.Chunk, int64(resp.Offset)); err != nil {
 			file.Close()
 			os.Remove(tempFile)
-			return fmt.Errorf("failed to write chunk: %w", err)
+			return nil, fmt.Errorf("failed to write chunk: %w", err)
 		}
-
 		if resp.Eof {
 			break
 		}
@@ -138,31 +157,26 @@ func (c *Client) downloadAndExtractSingleTool(ctx context.Context, url string, d
 	extLog.Info("Extracting %s...", fileName)
 
 	if strings.HasSuffix(fileName, ".zip") {
-		err = c.extractZip(tempFile, destDir, extLog)
+		extractedFiles, err = c.extractZip(tempFile, destDir, extLog)
 	} else if strings.HasSuffix(fileName, ".tar.gz") || strings.HasSuffix(fileName, ".tgz") {
-		err = c.extractTarGz(tempFile, destDir, extLog)
+		extractedFiles, err = c.extractTarGz(tempFile, destDir, extLog)
 	} else {
-		return fmt.Errorf("unsupported archive format: %s", fileName)
+		return nil, fmt.Errorf("unsupported archive format: %s", fileName)
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to extract and set permissions: %w", err)
+		return nil, fmt.Errorf("failed to extract and set permissions: %w", err)
 	}
 
-	// Clean up the downloaded archive
 	_ = os.Remove(tempFile)
-	return nil
+	return extractedFiles, nil // Trả về danh sách file cho WorkerDownloadTools
 }
 
-func isIgnoredFile(fileName string) bool {
-	lowerName := strings.ToLower(fileName)
-	return strings.HasSuffix(lowerName, ".txt") || strings.HasSuffix(lowerName, ".md") || strings.HasSuffix(lowerName, ".pdf")
-}
-
-func (c *Client) extractZip(srcZip string, destDir string, l *LoggerType) error {
+func (c *Client) extractZip(srcZip string, destDir string, l *LoggerType) ([]string, error) {
+	var extractedFiles []string
 	r, err := zip.OpenReader(srcZip)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer r.Close()
 
@@ -173,7 +187,7 @@ func (c *Client) extractZip(srcZip string, destDir string, l *LoggerType) error 
 
 		target := filepath.Join(destDir, f.Name)
 		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)) {
-			return fmt.Errorf("illegal file path: %s", f.Name)
+			return nil, fmt.Errorf("illegal file path: %s", f.Name)
 		}
 
 		if f.FileInfo().IsDir() {
@@ -185,41 +199,43 @@ func (c *Client) extractZip(srcZip string, destDir string, l *LoggerType) error 
 
 		outFile, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, f.Mode())
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		rc, err := f.Open()
 		if err != nil {
 			outFile.Close()
-			return err
+			return nil, err
 		}
 
 		_, err = io.Copy(outFile, rc)
 		outFile.Close()
 		rc.Close()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		// Ensure binary is executable on Unix-like systems
 		if runtime.GOOS != "windows" {
 			_ = os.Chmod(target, f.Mode()|0o755)
 		}
+
+		extractedFiles = append(extractedFiles, f.Name) // Lưu lại path tương đối
 		l.Verbose("Extracted: %s", f.Name)
 	}
-	return nil
+	return extractedFiles, nil
 }
 
-func (c *Client) extractTarGz(srcGzip string, destDir string, l *LoggerType) error {
+func (c *Client) extractTarGz(srcGzip string, destDir string, l *LoggerType) ([]string, error) {
+	var extractedFiles []string
 	file, err := os.Open(srcGzip)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer gzr.Close()
 
@@ -231,7 +247,7 @@ func (c *Client) extractTarGz(srcGzip string, destDir string, l *LoggerType) err
 			break
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if isIgnoredFile(header.Name) {
@@ -240,38 +256,44 @@ func (c *Client) extractTarGz(srcGzip string, destDir string, l *LoggerType) err
 
 		target := filepath.Join(destDir, header.Name)
 		if !strings.HasPrefix(filepath.Clean(target), filepath.Clean(destDir)) {
-			return fmt.Errorf("illegal file path: %s", header.Name)
+			return nil, fmt.Errorf("illegal file path: %s", header.Name)
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0o755); err != nil {
-				return err
+				return nil, err
 			}
 		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return err
+				return nil, err
 			}
 
 			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			if _, err := io.Copy(f, tr); err != nil {
 				f.Close()
-				return err
+				return nil, err
 			}
 			f.Close()
 
-			// Ensure binary is executable on Unix-like systems
 			if runtime.GOOS != "windows" {
 				_ = os.Chmod(target, os.FileMode(header.Mode)|0o755)
 			}
+
+			extractedFiles = append(extractedFiles, header.Name)
 			l.Verbose("Extracted: %s", header.Name)
 		}
 	}
-	return nil
+	return extractedFiles, nil
+}
+
+func isIgnoredFile(fileName string) bool {
+	lowerName := strings.ToLower(fileName)
+	return strings.HasSuffix(lowerName, ".txt") || strings.HasSuffix(lowerName, ".md") || strings.HasSuffix(lowerName, ".pdf")
 }
 
 func (c *Client) runInitCommand(ctx context.Context, cmdStr string, workDir string) error {
@@ -302,8 +324,8 @@ func (c *Client) runInitCommand(ctx context.Context, cmdStr string, workDir stri
 }
 
 // State management helpers
-func loadToolState(path string) map[string]bool {
-	state := make(map[string]bool)
+func loadToolState(path string) map[string][]string {
+	state := make(map[string][]string)
 	data, err := os.ReadFile(path)
 	if err == nil {
 		_ = json.Unmarshal(data, &state)
@@ -311,7 +333,7 @@ func loadToolState(path string) map[string]bool {
 	return state
 }
 
-func saveToolState(path string, state map[string]bool) error {
+func saveToolState(path string, state map[string][]string) error {
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
