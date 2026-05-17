@@ -54,12 +54,16 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	}
 
 	statePath := filepath.Join(absToolPath, ".tool_versions.json")
-	installedTools := loadToolState(statePath)
+
+	oldState := loadToolState(statePath)
+	newState := make(map[string]bool)
 
 	for _, toolUrl := range osTools {
 		fileName := filepath.Base(toolUrl)
 
-		if installedTools[fileName] {
+		newState[fileName] = true
+
+		if oldState[fileName] {
 			l.Success("Tools cache hit: %s", fileName)
 			continue
 		}
@@ -69,11 +73,10 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 			l.ErrorE("Failed to download/extract tool", err, fileName)
 			return err
 		}
+	}
 
-		installedTools[fileName] = true
-		if err := saveToolState(statePath, installedTools); err != nil {
-			l.ErrorE("Failed to save tool state", err)
-		}
+	if err := saveToolState(statePath, newState); err != nil {
+		l.ErrorE("Failed to save tool state", err)
 	}
 
 	manifest, err := c.Workers().GetManifest(ctx, &pb.GetManifestRequest{})
