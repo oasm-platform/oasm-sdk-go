@@ -169,7 +169,7 @@ func (c *Client) downloadAndExtractSingleTool(ctx context.Context, url string, d
 	}
 
 	_ = os.Remove(tempFile)
-	return extractedFiles, nil // Trả về danh sách file cho WorkerDownloadTools
+	return extractedFiles, nil
 }
 
 func (c *Client) extractZip(srcZip string, destDir string, l *LoggerType) ([]string, error) {
@@ -306,6 +306,12 @@ func (c *Client) runInitCommand(ctx context.Context, cmdStr string, workDir stri
 	binaryName := parts[0]
 	args := parts[1:]
 	fullPath := filepath.Join(workDir, binaryName)
+
+	if runtime.GOOS == "windows" && !strings.HasSuffix(strings.ToLower(fullPath), ".exe") {
+		if _, err := os.Stat(fullPath + ".exe"); err == nil {
+			fullPath += ".exe"
+		}
+	}
 
 	if _, err := os.Stat(fullPath); err == nil {
 		binaryName = fullPath
