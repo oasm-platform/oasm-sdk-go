@@ -26,6 +26,15 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 		return err
 	}
 
+	statePath := filepath.Join(absToolPath, ".tool_versions.json")
+
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		l.Info("Tool cache not found, cleaning up directory for fresh download")
+		if err := os.RemoveAll(absToolPath); err != nil {
+			return fmt.Errorf("failed to remove old tool directory: %w", err)
+		}
+	}
+
 	if err := os.MkdirAll(absToolPath, 0o755); err != nil {
 		return fmt.Errorf("failed to create tool directory: %w", err)
 	}
@@ -52,8 +61,6 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	default:
 		return fmt.Errorf("unsupported OS: %s", osKey)
 	}
-
-	statePath := filepath.Join(absToolPath, ".tool_versions.json")
 
 	oldState := loadToolState(statePath)
 	newState := make(map[string][]string)
