@@ -29,9 +29,18 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 	statePath := filepath.Join(absToolPath, ".tool_versions.json")
 
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		l.Info("Tool cache not found, cleaning up directory for fresh download")
-		if err := os.RemoveAll(absToolPath); err != nil {
-			return fmt.Errorf("failed to remove old tool directory: %w", err)
+		l.Info("Tool cache not found, cleaning up directory contents for fresh download")
+
+		entries, err := os.ReadDir(absToolPath)
+		if err == nil {
+			for _, entry := range entries {
+				removePath := filepath.Join(absToolPath, entry.Name())
+				if err := os.RemoveAll(removePath); err != nil {
+					return fmt.Errorf("failed to remove item %s: %w", removePath, err)
+				}
+			}
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read tool directory for cleanup: %w", err)
 		}
 	}
 
