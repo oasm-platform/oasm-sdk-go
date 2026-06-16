@@ -14,6 +14,12 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 	currentDelay := baseDelay
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		l.Verbose("Attempting to connect to Open ASM Core...")
 
 		_, err := c.WorkerJoin(ctx)
@@ -48,6 +54,7 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 
 		select {
 		case ready <- false:
+			l.Warning("Worker connection state shifted to offline")
 		default:
 		}
 
@@ -64,11 +71,14 @@ func (c *Client) WorkerConnect(ctx context.Context, ready chan<- bool) {
 }
 
 func (c *Client) waitWithContext(ctx context.Context, delay time.Duration, l *LoggerType) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
 	select {
 	case <-ctx.Done():
 		l.Warning("WorkerConnect stopping: context cancelled.")
 		return false
-	case <-time.After(delay):
+	case <-timer.C:
 		return true
 	}
 }
