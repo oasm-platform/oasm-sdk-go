@@ -20,6 +20,8 @@ github.com/oasm-platform/open-asm/grpc-client/go v0.0.0-20260517093339-41cc1a622
 github.com/oasm-platform/open-asm/grpc-client/go v0.0.0-20260517093339-41cc1a622cc0/go.mod h1:dHyOVfH7p+2EP+eQo7zQKu7Aj1c1b4uZv1BzzOijsZg=
 github.com/oasm-platform/open-asm/grpc-client/go v0.0.0-20260520113334-bc33f1b951a7 h1:1Vh5nfZEluT3F3bIN7RV4rObsriqxwOVSPSkA8f15Ts=
 github.com/oasm-platform/open-asm/grpc-client/go v0.0.0-20260520113334-bc33f1b951a7/go.mod h1:dHyOVfH7p+2EP+eQo7zQKu7Aj1c1b4uZv1BzzOijsZg=
+github.com/oasm-platform/open-asm/grpc-client/go v0.0.0-20260618004722-4483b4b84523 h1:LLHrDyWzMjSesqZyEdA1aNCzePToOm00KP1IJWGLyHA=
+github.com/oasm-platform/open-asm/grpc-client/go v0.0.0-20260618004722-4483b4b84523/go.mod h1:dHyOVfH7p+2EP+eQo7zQKu7Aj1c1b4uZv1BzzOijsZg=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/otel v1.39.0 h1:8yPrr/S0ND9QEfTfdP9V+SiwT4E0G7Y5MO7p85nis48=

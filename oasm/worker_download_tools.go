@@ -48,33 +48,23 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 		return fmt.Errorf("failed to create tool directory: %w", err)
 	}
 
-	registry, err := c.Workers().BuiltinToolRegistry(ctx, &pb.BuiltinToolRegistryRequest{})
-	if err != nil {
-		l.ErrorE("BuiltinToolRegistry retrieval failed", err)
-		return err
-	}
-
 	osKey := runtime.GOOS
 	if osKey == "darwin" {
 		osKey = "macos"
 	}
 
-	var osTools []string
-	switch osKey {
-	case "linux":
-		osTools = registry.Linux
-	case "windows":
-		osTools = registry.Windows
-	case "macos":
-		osTools = registry.Macos
-	default:
-		return fmt.Errorf("unsupported OS: %s", osKey)
+	archKey := runtime.GOARCH
+
+	registry, err := c.Workers().BuiltinToolRegistry(ctx, &pb.BuiltinToolRegistryRequest{Os: osKey, Arch: archKey})
+	if err != nil {
+		l.ErrorE("BuiltinToolRegistry retrieval failed", err)
+		return err
 	}
 
 	oldState := loadToolState(statePath)
 	newState := make(map[string][]string)
 
-	for _, toolUrl := range osTools {
+	for _, toolUrl := range registry.ToolPaths {
 		fileName := filepath.Base(toolUrl)
 
 		if extractedFiles, exists := oldState[fileName]; exists {
