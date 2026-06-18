@@ -59,14 +59,16 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 		osKey = "macos"
 	}
 
+	archKey := runtime.GOARCH
+
 	var osTools []string
 	switch osKey {
 	case "linux":
-		osTools = registry.Linux
+		osTools = filterByArch(registry.Linux, archKey)
 	case "windows":
-		osTools = registry.Windows
+		osTools = filterByArch(registry.Windows, archKey)
 	case "macos":
-		osTools = registry.Macos
+		osTools = filterByArch(registry.Macos, archKey)
 	default:
 		return fmt.Errorf("unsupported OS: %s", osKey)
 	}
@@ -365,4 +367,21 @@ func saveToolState(path string, state map[string][]string) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+// filterByArch filters a list of tool URLs to only those matching the current
+// CPU architecture. It looks for the GOARCH string (e.g. "arm64", "amd64") in
+// the filename. If no files match the current arch, all files are returned as a
+// fallback so existing single-arch deployments continue to work.
+func filterByArch(tools []string, arch string) []string {
+	var matched []string
+	for _, tool := range tools {
+		if strings.Contains(filepath.Base(tool), arch) {
+			matched = append(matched, tool)
+		}
+	}
+	if len(matched) == 0 {
+		return tools
+	}
+	return matched
 }
