@@ -48,12 +48,6 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 		return fmt.Errorf("failed to create tool directory: %w", err)
 	}
 
-	registry, err := c.Workers().BuiltinToolRegistry(ctx, &pb.BuiltinToolRegistryRequest{})
-	if err != nil {
-		l.ErrorE("BuiltinToolRegistry retrieval failed", err)
-		return err
-	}
-
 	osKey := runtime.GOOS
 	if osKey == "darwin" {
 		osKey = "macos"
@@ -61,22 +55,16 @@ func (c *Client) WorkerDownloadTools(ctx context.Context) error {
 
 	archKey := runtime.GOARCH
 
-	var osTools []string
-	switch osKey {
-	case "linux":
-		osTools = filterByArch(registry.Linux, archKey)
-	case "windows":
-		osTools = filterByArch(registry.Windows, archKey)
-	case "macos":
-		osTools = filterByArch(registry.Macos, archKey)
-	default:
-		return fmt.Errorf("unsupported OS: %s", osKey)
+	registry, err := c.Workers().BuiltinToolRegistry(ctx, &pb.BuiltinToolRegistryRequest{Os: osKey, Arch: archKey})
+	if err != nil {
+		l.ErrorE("BuiltinToolRegistry retrieval failed", err)
+		return err
 	}
 
 	oldState := loadToolState(statePath)
 	newState := make(map[string][]string)
 
-	for _, toolUrl := range osTools {
+	for _, toolUrl := range registry.ToolPaths {
 		fileName := filepath.Base(toolUrl)
 
 		if extractedFiles, exists := oldState[fileName]; exists {
@@ -367,21 +355,4 @@ func saveToolState(path string, state map[string][]string) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
-}
-
-// filterByArch filters a list of tool URLs to only those matching the current
-// CPU architecture. It looks for the GOARCH string (e.g. "arm64", "amd64") in
-// the filename. If no files match the current arch, all files are returned as a
-// fallback so existing single-arch deployments continue to work.
-func filterByArch(tools []string, arch string) []string {
-	var matched []string
-	for _, tool := range tools {
-		if strings.Contains(filepath.Base(tool), arch) {
-			matched = append(matched, tool)
-		}
-	}
-	if len(matched) == 0 {
-		return tools
-	}
-	return matched
 }
