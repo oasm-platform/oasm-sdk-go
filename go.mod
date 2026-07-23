@@ -7,8 +7,6 @@ require (
 	google.golang.org/grpc v1.80.0
 )
 
-replace github.com/oasm-platform/open-asm/grpc-client/go => ../open-asm/grpc-client/go
-
 require (
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
