@@ -3,7 +3,7 @@ module github.com/oasm-platform/oasm-sdk-go
 go 1.25.0
 
 require (
-	github.com/oasm-platform/open-asm/grpc-client/go v0.0.0-20260716080653-0fa305247d5a
+	github.com/oasm-platform/open-asm/grpc-client/go v0.0.0-20260723145815-70b500b6efa3
 	google.golang.org/grpc v1.80.0
 )
 
